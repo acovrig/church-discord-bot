@@ -1,14 +1,13 @@
 import os
-from time import sleep
 import re
 import discord
-from discord.ext import commands
+# from discord.ext import commands
 from discord.utils import get
 from dotenv import load_dotenv
 from asyncio_mqtt import Client, Will
-from threading import Thread
 import asyncio
 
+from time import sleep
 import pdb
 
 load_dotenv()
@@ -24,12 +23,12 @@ MQTT_PASS = os.getenv('MQTT_PASS')
 MQTT_PORT = os.getenv('MQTT_PORT') or 1883
 bind_ids = []
 
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 intents = discord.Intents.default()
 intents.members = True
-
-# client = commands.Bot(command_prefix=',', intents=intents)
-client = discord.Client(intents=intents)
-bot = commands.Bot(command_prefix='!')
+loop = asyncio.get_event_loop()
+client = discord.Client(loop=loop, intents=intents)
 
 async def setup_mqtt():
   async with Client(
@@ -139,17 +138,22 @@ async def on_message(message):
   
   elif message.content.startswith('!t'):
     # publish.single('discord/test', message.content.replace('!t', ''), hostname=MQTT_HOST)
-    mqtt_client.publish('discord/test', message.content.replace('!t ', ''))
+    # mqtt_client.publish('discord/test', message.content.replace('!t ', ''))
+    async with Client(MQTT_HOST,
+      username=MQTT_USER,
+      password=MQTT_PASS) as mqtt_client:
+      await mqtt_client.publish(
+        'discord/test',
+        payload=message.content.replace('!t ', '').encode()
+      )
 
   if type(message.channel) == discord.channel.TextChannel:
-    if message.channel.name == 'testing':
+    if message.channel.id == TEST_ID:
       print(f'Mesasge in {message.channel.name} (from {message.author.name}): {message.content}')
-    elif message.channel.name == 'current-av':
-      print(f'Mesasge in {message.channel.name} (from {message.author.name}): {message.content}')
-    elif message.channel.name == 'av':
-      print(f'Mesasge in {message.channel.name} (from {message.author.name}): {message.content}')
-    else:
-      print(f'Mesasge in {message.channel.name} (from {message.author.name}): {message.content}')
+    elif message.channel.id == CONTROL_ID:
+      print(f'Control Mesasge (from {message.author.name}): {message.content}')
+      # if message.content == 'start':
+      # elif message.content == 'shutdown':
   elif type(message.channel) == discord.channel.DMChannel:
     if message.author.id == 488739970979463173:
       channel = client.get_channel(ALL_ID)
@@ -166,25 +170,9 @@ async def on_message(message):
       return
     print(f'Direct Mesasge from {message.author.name}: {message.content}')
 
-def run_discord():
-  client.run(TOKEN)
-
-def run_mqtt():
-  asyncio.run(setup_mqtt())
-
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-mqtt_thread = Thread(target=run_mqtt)
-discord_thread = Thread(target=run_discord)
-
-mqtt_thread.daemon = True
-discord_thread.daemon = True
-mqtt_thread.start()
-discord_thread.start()
-
+loop.create_task(setup_mqtt())
 try:
-  while True:
-    sleep(1)
+  loop.run_until_complete(client.start(TOKEN))
 except KeyboardInterrupt:
   print('Quitting')
   quit()
