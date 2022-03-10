@@ -5,8 +5,7 @@ import discord
 from discord.ext import commands
 from discord.utils import get
 from dotenv import load_dotenv
-import paho.mqtt.client as mqtt
-import paho.mqtt.publish as publish
+from asyncio_mqtt import Client, Will
 from threading import Thread
 import asyncio
 
@@ -32,48 +31,33 @@ intents.members = True
 client = discord.Client(intents=intents)
 bot = commands.Bot(command_prefix='!')
 
-
-async def final_send(channel, msg):
-  print(f'sending {msg} to {channel}')
-  await channel.send(content=msg, delete_after=10)
-
-def send_discord_message(channel, msg):
-  print(f'que {msg}')
-  asyncio.new_event_loop().create_task(final_send(channel, msg))
-
-
-def on_mqtt_connect(client, userdata, flags, rc):
-  print(f'Connected to MQTT: {str(rc)}')
-  client.subscribe('discord/av')
-  client.subscribe('discord/av-current')
-  client.subscribe('discord/command')
-  client.subscribe('discord/test')
-  client.publish('discord/status', 'on')
-
-def on_mqtt_message(mqtt_client, userdata, msg):
-  txt = msg.payload.decode('utf-8')
-  # txt = str(txt)
-  print(f'Got MQTT {msg.topic}: {txt}')
-  guild = next(g for g in client.guilds if g.id == GUILD)
-  if msg.topic == 'discord/av':
-    channel = guild.get_channel(ALL_ID)
-  elif msg.topic == 'discord/av-current':
-    channel = guild.get_channel(CURRENT_ID)
-  elif msg.topic == 'discord/control':
-    channel = guild.get_channel(CONTROL_ID)
-  elif msg.topic == 'discord/test':
-    channel = guild.get_channel(TEST_ID)
-
-  # msg_thread = Thread(target=channel.send, args={'content': f'MQTT: {txt}', 'delete_after': 10})
-  msg_thread = Thread(target=send_discord_message, args=(channel, f'MQTT: {txt}'))
-  msg_thread.daemon = True
-  msg_thread.start()
-  # asyncio.run(channel.send(content=f'MQTT: {txt}', delete_after=10))
-  # loop = asyncio.new_event_loop()
-  # loop.run_until_complete(channel.send(content=f'MQTT: {txt}', delete_after=10))
-  # loop = asyncio.new_event_loop()
-  # asyncio.set_event_loop(loop)
-  # loop.run_until_complete(send_discord_message(channel, f'MQTT: {txt}'))
+async def setup_mqtt():
+  async with Client(
+    MQTT_HOST,
+    username=MQTT_USER,
+    password=MQTT_PASS,
+    will=Will('discord/status', 'off')
+  ) as mqtt_client:
+    async with mqtt_client.filtered_messages('discord/#') as messages:
+      await mqtt_client.subscribe("discord/av")
+      await mqtt_client.subscribe("discord/av-current")
+      await mqtt_client.subscribe("discord/command")
+      await mqtt_client.subscribe("discord/test")
+      await mqtt_client.publish('discord/status', 'on')
+      print('MQTT ready')
+      async for message in messages:
+        txt = message.payload.decode()
+        print(f'MQTT ({message.topic}): {txt}')
+        guild = next(g for g in client.guilds if g.id == GUILD)
+        if message.topic == 'discord/av':
+          channel = guild.get_channel(ALL_ID)
+        elif message.topic == 'discord/av-current':
+          channel = guild.get_channel(CURRENT_ID)
+        elif message.topic == 'discord/control':
+          channel = guild.get_channel(CONTROL_ID)
+        elif message.topic == 'discord/test':
+          channel = guild.get_channel(TEST_ID)
+        await channel.send(content=f'MQTT: {txt}', delete_after=10)
 
 
 @client.event
@@ -185,15 +169,12 @@ async def on_message(message):
 def run_discord():
   client.run(TOKEN)
 
+def run_mqtt():
+  asyncio.run(setup_mqtt())
 
-mqtt_client = mqtt.Client()
-mqtt_client.username_pw_set(MQTT_USER, password=MQTT_PASS)
-mqtt_client.on_connect = on_mqtt_connect
-mqtt_client.on_message = on_mqtt_message
-mqtt_client.will_set('discord/status', 'off')
-mqtt_client.connect(MQTT_HOST, MQTT_PORT, 60)
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-mqtt_thread = Thread(target=mqtt_client.loop_forever)
+mqtt_thread = Thread(target=run_mqtt)
 discord_thread = Thread(target=run_discord)
 
 mqtt_thread.daemon = True
@@ -207,8 +188,3 @@ try:
 except KeyboardInterrupt:
   print('Quitting')
   quit()
-
-# mqtt_thread.join()
-# print('mqtt exited')
-# discord_thread.join()
-# print('full exit')
