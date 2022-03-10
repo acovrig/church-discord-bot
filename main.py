@@ -1,18 +1,29 @@
 import os
+from time import sleep
 import re
 import discord
 from discord.ext import commands
 from discord.utils import get
 from dotenv import load_dotenv
+import paho.mqtt.client as mqtt
+import paho.mqtt.publish as publish
+from threading import Thread
+import asyncio
 
 import pdb
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-GUILD = os.getenv('DISCORD_GUILD')
+GUILD = int(os.getenv('DISCORD_GUILD'))
 CURRENT_ID = int(os.getenv('CURRENT_ID'))
 ALL_ID = int(os.getenv('ALL_ID'))
-bind_ids = [950109903312261190]
+CONTROL_ID = int(os.getenv('CONTROL_ID'))
+TEST_ID = int(os.getenv('TEST_ID'))
+MQTT_HOST = os.getenv('MQTT_HOST')
+MQTT_USER = os.getenv('MQTT_USER')
+MQTT_PASS = os.getenv('MQTT_PASS')
+MQTT_PORT = os.getenv('MQTT_PORT') or 1883
+bind_ids = []
 
 intents = discord.Intents.default()
 intents.members = True
@@ -20,6 +31,50 @@ intents.members = True
 # client = commands.Bot(command_prefix=',', intents=intents)
 client = discord.Client(intents=intents)
 bot = commands.Bot(command_prefix='!')
+
+
+async def final_send(channel, msg):
+  print(f'sending {msg} to {channel}')
+  await channel.send(content=msg, delete_after=10)
+
+def send_discord_message(channel, msg):
+  print(f'que {msg}')
+  asyncio.new_event_loop().create_task(final_send(channel, msg))
+
+
+def on_mqtt_connect(client, userdata, flags, rc):
+  print(f'Connected to MQTT: {str(rc)}')
+  client.subscribe('discord/av')
+  client.subscribe('discord/av-current')
+  client.subscribe('discord/command')
+  client.subscribe('discord/test')
+  client.publish('discord/status', 'on')
+
+def on_mqtt_message(mqtt_client, userdata, msg):
+  txt = msg.payload.decode('utf-8')
+  # txt = str(txt)
+  print(f'Got MQTT {msg.topic}: {txt}')
+  guild = next(g for g in client.guilds if g.id == GUILD)
+  if msg.topic == 'discord/av':
+    channel = guild.get_channel(ALL_ID)
+  elif msg.topic == 'discord/av-current':
+    channel = guild.get_channel(CURRENT_ID)
+  elif msg.topic == 'discord/control':
+    channel = guild.get_channel(CONTROL_ID)
+  elif msg.topic == 'discord/test':
+    channel = guild.get_channel(TEST_ID)
+
+  # msg_thread = Thread(target=channel.send, args={'content': f'MQTT: {txt}', 'delete_after': 10})
+  msg_thread = Thread(target=send_discord_message, args=(channel, f'MQTT: {txt}'))
+  msg_thread.daemon = True
+  msg_thread.start()
+  # asyncio.run(channel.send(content=f'MQTT: {txt}', delete_after=10))
+  # loop = asyncio.new_event_loop()
+  # loop.run_until_complete(channel.send(content=f'MQTT: {txt}', delete_after=10))
+  # loop = asyncio.new_event_loop()
+  # asyncio.set_event_loop(loop)
+  # loop.run_until_complete(send_discord_message(channel, f'MQTT: {txt}'))
+
 
 @client.event
 async def on_ready():
@@ -67,7 +122,6 @@ async def on_raw_reaction_add(payload):
       await payload.member.remove_roles(role)
       await channel.send(content=f'{payload.member.name} left current.', delete_after=30)
       print(f'Removed {payload.member.name} from current')
-    # else:
 
 @client.event
 async def on_raw_reaction_remove(payload):
@@ -83,7 +137,7 @@ async def on_message(message):
   if message.author == client.user:
     return
 
-  if message.content == 'a!':
+  if message.content == '!a':
     msg = await message.channel.send(f'Adding {message.author.name}')
     print(f'Add {message.author.name} to current')
     role = get(message.guild.roles, name='Current')
@@ -91,13 +145,17 @@ async def on_message(message):
     await msg.edit(content=f'Added {message.author.name} to Current')
     await message.delete()
 
-  elif message.content == 'r!':
+  elif message.content == '!r':
     msg = await message.channel.send(f'Removing {message.author.name}')
     print(f'Remove {message.author.name} from current')
     role = get(message.guild.roles, name='Current')
     await message.author.remove_roles(role)
     await msg.edit(content=f'Removed {message.author.name} from Current')
     await message.delete()
+  
+  elif message.content.startswith('!t'):
+    # publish.single('discord/test', message.content.replace('!t', ''), hostname=MQTT_HOST)
+    mqtt_client.publish('discord/test', message.content.replace('!t ', ''))
 
   if type(message.channel) == discord.channel.TextChannel:
     if message.channel.name == 'testing':
@@ -124,4 +182,33 @@ async def on_message(message):
       return
     print(f'Direct Mesasge from {message.author.name}: {message.content}')
 
-client.run(TOKEN)
+def run_discord():
+  client.run(TOKEN)
+
+
+mqtt_client = mqtt.Client()
+mqtt_client.username_pw_set(MQTT_USER, password=MQTT_PASS)
+mqtt_client.on_connect = on_mqtt_connect
+mqtt_client.on_message = on_mqtt_message
+mqtt_client.will_set('discord/status', 'off')
+mqtt_client.connect(MQTT_HOST, MQTT_PORT, 60)
+
+mqtt_thread = Thread(target=mqtt_client.loop_forever)
+discord_thread = Thread(target=run_discord)
+
+mqtt_thread.daemon = True
+discord_thread.daemon = True
+mqtt_thread.start()
+discord_thread.start()
+
+try:
+  while True:
+    sleep(1)
+except KeyboardInterrupt:
+  print('Quitting')
+  quit()
+
+# mqtt_thread.join()
+# print('mqtt exited')
+# discord_thread.join()
+# print('full exit')
