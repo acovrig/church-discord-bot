@@ -3,6 +3,8 @@ import re
 import discord
 # from discord.ext import commands
 from discord.utils import get
+from discord_slash import SlashCommand, SlashContext
+from discord_slash.utils.manage_commands import create_choice, create_option
 from dotenv import load_dotenv
 from asyncio_mqtt import Client, Will
 import asyncio
@@ -29,6 +31,7 @@ intents = discord.Intents.default()
 intents.members = True
 loop = asyncio.get_event_loop()
 client = discord.Client(loop=loop, intents=intents)
+slash = SlashCommand(client, sync_commands=True)
 
 async def setup_mqtt():
   async with Client(
@@ -169,6 +172,66 @@ async def on_message(message):
         bind_ids.append(msg.id)
       return
     print(f'Direct Mesasge from {message.author.name}: {message.content}')
+
+@slash.slash(
+  name="start",
+  description="[control channel] Start the AV System",
+  guild_ids=[GUILD]
+)
+async def _start(ctx:SlashContext):
+  if ctx.channel.id == CONTROL_ID:
+    await ctx.send(f'Starting AV for {ctx.author.name}')
+  else:
+    await ctx.send('You must be in the `control` channel to use this.')
+
+@slash.slash(
+  name="shutdown",
+  description="[control channel] Shutdown the AV System",
+  guild_ids=[GUILD]
+)
+async def _start(ctx:SlashContext):
+  if ctx.channel.id == CONTROL_ID:
+    await ctx.send(f'Shutting down AV for {ctx.author.name}')
+  else:
+    await ctx.send('You must be in the `control` channel to use this.')
+
+@slash.slash(
+  name="prepare",
+  description="[control channel] Prepares ProPresenter",
+  guild_ids=[GUILD],
+  options=[
+    create_option(
+      name="praise",
+      description="Song of Praise #",
+      required=False,
+      option_type=4 # see https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-type
+    ),
+    create_option(
+      name="opening",
+      description="Opening Hymn #",
+      required=False,
+      option_type=4 # see https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-type
+    ),
+    create_option(
+      name="closing",
+      description="Closing Hymn #",
+      required=False,
+      option_type=4 # see https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-type
+    ),
+    create_option(
+      name="scripture",
+      description="Scripture Verse (reference)",
+      required=False,
+      option_type=3 # see https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-type
+    )
+  ]
+)
+async def _prep(ctx:SlashContext, praise:int=-1, opening:int=-1, closing:int=-1, scripture:str=''):
+  if ctx.channel.id == CONTROL_ID:
+    await ctx.send(f'Prepare ProPresenter for {ctx.author.name} with:\n#{praise} for Song of Praise\n#{opening} for Opening Hymn\n#{closing} for Closing Hymn\n{scripture} for Scripture')
+    await ctx.send(f'Don\'t forget to get the offering slide - I can\'t do that myself yet.')
+  else:
+    await ctx.send('You must be in the `control` channel to use this.')
 
 loop.create_task(setup_mqtt())
 try:
