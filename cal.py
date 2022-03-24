@@ -14,7 +14,7 @@ from googleapiclient.errors import HttpError
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
 
-def run_cal(hass):
+def run_cal():
   """Shows basic usage of the Google Calendar API.
   prints the start and name of the next 10 events on the user's calendar.
   """
@@ -22,17 +22,27 @@ def run_cal(hass):
   # The file token.json stores the user's access and refresh tokens, and is
   # created automatically when the authorization flow completes for the first
   # time.
-  if os.path.exists('token-cal.json'):
-    creds = Credentials.from_authorized_user_file('token-cal.json', SCOPES)
+  token_file = 'token-cal.json'
+  if os.path.exists(os.path.join(os.path.sep, 'creds', 'token-cal.json')):
+    token_file = os.path.join(os.path.sep, 'creds', 'token-cal.json')
+  elif os.path.exists(os.path.join('creds', 'token-cal.json')):
+    token_file = os.path.join('creds', 'token-cal.json')
+  if os.path.exists(token_file):
+    creds = Credentials.from_authorized_user_file(token_file, SCOPES)
   # If there are no (valid) credentials available, let the user log in.
   if not creds or not creds.valid:
     if creds and creds.expired and creds.refresh_token:
       creds.refresh(Request())
     else:
-      flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+      creds_file = 'credentials.json'
+      if os.path.exists(os.path.join(os.path.sep, 'creds', 'credentials.json')):
+        creds_file = os.path.join(os.path.sep, 'creds', 'credentials.json')
+      elif os.path.exists(os.path.join('creds', 'credentials.json')):
+        creds_file = os.path.join('creds', 'credentials.json')
+      flow = InstalledAppFlow.from_client_secrets_file(creds_file, SCOPES)
       creds = flow.run_local_server(port=0)
     # Save the credentials for the next run
-    with open('token-cal.json', 'w') as token:
+    with open(token_file, 'w') as token:
       token.write(creds.to_json())
 
   try:
@@ -40,7 +50,7 @@ def run_cal(hass):
 
     # Call the Calendar API
     now = datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
-    hass.log('Getting the upcoming 10 events')
+    print('Getting the upcoming 10 events')
     sab = 6 - datetime.now().weekday()
     if sab <= 0:
       sab += 7
@@ -57,12 +67,12 @@ def run_cal(hass):
     events = events_result.get('items', [])
 
     if not events:
-      hass.log('No upcoming events found.')
+      print('No upcoming events found.')
       return
 
     for event in events:
       start = event['start'].get('dateTime', event['start'].get('date'))
-      hass.log(f"{start} {event['summary']}")
+      print(f"{start} {event['summary']}")
 
     people = list(map(lambda x: sub(r'[^a-zA-Z]', '', x['summary']).upper(), events))
     people.append('AUSTIN')
@@ -70,11 +80,7 @@ def run_cal(hass):
     return people
 
   except HttpError as error:
-    hass.log('An error occurred: %s' % error)
-
-class Logger():
-  def log(l):
-    print(l)
+    print('An error occurred: %s' % error)
 
 if __name__ == '__main__':
-  run_cal(Logger)
+  run_cal()

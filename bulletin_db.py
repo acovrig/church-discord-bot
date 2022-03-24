@@ -4,9 +4,8 @@ from datetime import timedelta
 import mysql.connector
 
 class BulletinDB:
-  def __init__(self, hass):
-    self.hass = hass
-    self.hass.log('Init DB')
+  def __init__(self):
+    print('Init DB')
     load_dotenv()
     self.db = mysql.connector.connect(
       host=os.getenv('MYSQL_HOST'),

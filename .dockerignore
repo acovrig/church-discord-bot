@@ -1,0 +1,7 @@
+__pycache__
+credentials.json
+token-cal.json
+token-yt.json
+creds/
+.git/
+image.tar

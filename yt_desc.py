@@ -19,7 +19,7 @@ from discord import Embed
 SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
 
 
-async def run_yt(hass, msg=None):
+async def run_yt(msg=None):
   """Shows basic usage of the Google Calendar API.
   prints the start and name of the next 10 events on the user's calendar.
   """
@@ -27,17 +27,27 @@ async def run_yt(hass, msg=None):
   # The file token.json stores the user's access and refresh tokens, and is
   # created automatically when the authorization flow completes for the first
   # time.
-  if os.path.exists('token-yt.json'):
-    creds = Credentials.from_authorized_user_file('token-yt.json', SCOPES)
+  token_file = 'token-yt.json'
+  if os.path.exists(os.path.join(os.path.sep, 'creds', 'token-yt.json')):
+    token_file = os.path.join(os.path.sep, 'creds', 'token-yt.json')
+  elif os.path.exists(os.path.join('creds', 'token-yt.json')):
+    token_file = os.path.join(os.path.sep, 'creds', 'token-yt.json')
+  if os.path.exists(token_file):
+    creds = Credentials.from_authorized_user_file(token_file, SCOPES)
   # If there are no (valid) credentials available, let the user log in.
   if not creds or not creds.valid:
     if creds and creds.expired and creds.refresh_token:
       creds.refresh(Request())
     else:
-      flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+      creds_file = 'credentials.json'
+      if os.path.exists(os.path.join(os.path.sep, 'creds', 'credentials.json')):
+        creds_file = os.path.join(os.path.sep, 'creds', 'credentials.json')
+      elif os.path.exists(os.path.join('creds', 'credentials.json')):
+        creds_file = os.path.join('creds', 'credentials.json')
+      flow = InstalledAppFlow.from_client_secrets_file(creds_file, SCOPES)
       creds = flow.run_local_server(port=0)
     # Save the credentials for the next run
-    with open('token-yt.json', 'w') as token:
+    with open(token_file, 'w') as token:
       token.write(creds.to_json())
 
   try:
@@ -58,13 +68,13 @@ async def run_yt(hass, msg=None):
     vids = vids.get('items', [])
 
     if not vids:
-      hass.log('No videos found.')
+      print('No videos found.')
       if msg != None:
         await msg.edit(content=f'🛑 No videos found to update.')
       return
 
     vid = vids[0].get('id', {}).get('videoId')
-    hass.log(f"Found YT VID: {vid}")
+    print(f"Found YT VID: {vid}")
     if msg != None:
       await msg.edit(content=f'🎥 Found https://youtu.be/{vid}:')
 
@@ -74,13 +84,13 @@ async def run_yt(hass, msg=None):
     ).execute()
     video = video.get('items', [])
     if not video:
-      hass.log(f'Unable to get vid {vid}.')
+      print(f'Unable to get vid {vid}.')
       if msg != None:
         await msg.edit(content=f'🛑 Unable to get vid {vid}.')
       return
 
     video = video[0]
-    # hass.log(video)
+    # print(video)
 
     title = video.get('snippet', {}).get('title', 'Church Service')
     catId = video.get('snippet', {}).get('categoryId', '19')
@@ -91,7 +101,7 @@ async def run_yt(hass, msg=None):
 
     times = '0:00:00 Happy Sabbath'
     if times not in desc:
-      bulletin = BulletinDB(hass)
+      bulletin = BulletinDB()
       bulletin = bulletin.get_date(sab)
       for e in bulletin:
         who = e['who']
@@ -122,13 +132,9 @@ async def run_yt(hass, msg=None):
         await msg.edit(content=f"✅ Video already has times: https://youtu.be/{vid}:\n\n{desc}")
 
   except HttpError as error:
-    hass.log('An error occurred: %s' % error)
+    print('An error occurred: %s' % error)
     if msg != None:
       await msg.edit(content=f"🛑 Something went wrong with the YT API: {error}")
 
-class Logger():
-  def log(l):
-    print(l)
-
 if __name__ == '__main__':
-  run_yt(Logger)
+  run_yt()

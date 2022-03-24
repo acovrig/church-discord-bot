@@ -3,3 +3,6 @@ credentials.json
 token-cal.json
 token-yt.json
 .env
+image.tar
+files.tar
+creds/

@@ -61,11 +61,11 @@ async def setup_mqtt():
       await mqtt_client.subscribe("discord/control")
       await mqtt_client.subscribe("discord/test")
       await mqtt_client.publish('discord/status', 'on')
-      hass.log('MQTT ready')
+      print('MQTT ready')
       async for message in messages:
         channel = None
         txt = message.payload.decode()
-        hass.log(f'MQTT ({message.topic}): {txt}')
+        print(f'MQTT ({message.topic}): {txt}')
         if message.topic == 'discord/av':
           channel = GUILD.get_channel(ALL_ID)
         elif message.topic == 'discord/av-current':
@@ -76,9 +76,9 @@ async def setup_mqtt():
           channel = GUILD.get_channel(TEST_ID)
         elif message.topic == 'discord/command':
           if txt == 'update_youtube':
-            hass.log('Updating YouTube')
+            print('Updating YouTube')
             msg = await GUILD.get_channel(CURRENT_ID).send(content=f'Updating YouTube Description')
-            await run_yt(hass, msg)
+            await run_yt(msg)
         if channel != None:
           await channel.send(content=f'MQTT: {txt}', delete_after=10)
 
@@ -90,7 +90,7 @@ async def on_ready():
     if guild.id == GUILD_ID:
       GUILD = guild
       break
-  hass.log(f'{client.user} has connected to Discord at {guild.name}!')
+  print(f'{client.user} has connected to Discord at {guild.name}!')
 
 @client.event
 async def on_member_join(member):
@@ -109,24 +109,24 @@ async def on_raw_reaction_add(payload):
   channel = guild.get_channel(payload.channel_id)
   msg = await channel.fetch_message(payload.message_id)
   msg = re.sub(r'\n*.^>>>.*', '', msg.content, flags=re.S|re.M)
-  hass.log(f'{user.display_name} added reaction {payload.emoji.name} (in {channel.name}) to {msg}')
+  print(f'{user.display_name} added reaction {payload.emoji.name} (in {channel.name}) to {msg}')
 
   if payload.message_id in bind_ids:
-    hass.log('Binding')
+    print('Binding')
 
     role = get(guild.roles, name='Current')
     channel = client.get_channel(CURRENT_ID)
 
     if payload.emoji.name == '👍':
-      hass.log(f'Add {payload.member.display_name} to current')
+      print(f'Add {payload.member.display_name} to current')
       await payload.member.add_roles(role)
       await channel.send(content=f'{payload.member.display_name} on current.', delete_after=30)
-      hass.log(f'Added {payload.member.display_name} to current')
+      print(f'Added {payload.member.display_name} to current')
     elif payload.emoji.name == '⛔':
-      hass.log(f'Remove {payload.member.display_name} from current')
+      print(f'Remove {payload.member.display_name} from current')
       await payload.member.remove_roles(role)
       await channel.send(content=f'{payload.member.display_name} left current.', delete_after=30)
-      hass.log(f'Removed {payload.member.display_name} from current')
+      print(f'Removed {payload.member.display_name} from current')
 
 @client.event
 async def on_raw_reaction_remove(payload):
@@ -135,7 +135,7 @@ async def on_raw_reaction_remove(payload):
   channel = guild.get_channel(payload.channel_id)
   msg = await channel.fetch_message(payload.message_id)
   msg = re.sub(r'\n*^>>>.*', '', msg.content, flags=re.S|re.M)
-  hass.log(f'{user.display_name} removed reaction {payload.emoji.name} (in {channel.name}) from {msg}')
+  print(f'{user.display_name} removed reaction {payload.emoji.name} (in {channel.name}) from {msg}')
 
 @client.event
 async def on_message(message):
@@ -144,7 +144,7 @@ async def on_message(message):
 
   if message.content == '!a':
     msg = await message.channel.send(f'Adding {message.author.display_name}')
-    hass.log(f'Add {message.author.display_name} to current')
+    print(f'Add {message.author.display_name} to current')
     role = get(message.guild.roles, name='Current')
     await message.author.add_roles(role)
     await msg.edit(content=f'Added {message.author.display_name} to Current')
@@ -152,7 +152,7 @@ async def on_message(message):
 
   elif message.content == '!r':
     msg = await message.channel.send(f'Removing {message.author.display_name}')
-    hass.log(f'Remove {message.author.display_name} from current')
+    print(f'Remove {message.author.display_name} from current')
     role = get(message.guild.roles, name='Current')
     await message.author.remove_roles(role)
     await msg.edit(content=f'Removed {message.author.display_name} from Current')
@@ -160,21 +160,21 @@ async def on_message(message):
 
   if type(message.channel) == discord.channel.TextChannel:
     if message.channel.id == TEST_ID:
-      hass.log(f'Mesasge in {message.channel.name} (from {message.author.display_name}): {message.content}')
+      print(f'Mesasge in {message.channel.name} (from {message.author.display_name}): {message.content}')
     elif message.channel.id == CONTROL_ID:
-      hass.log(f'Control Mesasge (from {message.author.display_name}): {message.content}')
+      print(f'Control Mesasge (from {message.author.display_name}): {message.content}')
   elif type(message.channel) == discord.channel.DMChannel:
     if message.author.id == 488739970979463173:
       channel = client.get_channel(ALL_ID)
       if message.content.startswith('!say '):
         msg = await channel.send(message.content.replace('!say ',''))
-        hass.log(f'Said {msg}')
+        print(f'Said {msg}')
       elif message.content.startswith('!ask '):
         msg = message.content.replace('!ask ','')
         msg = await channel.send(content=f'{msg}\n\n>>> 👍 Yes\n⛔ No')
         await msg.add_reaction('👍')
         await msg.add_reaction('⛔')
-        hass.log(f'Asked {msg}')
+        print(f'Asked {msg}')
         bind_ids.append(msg.id)
       elif message.content == '!clear control':
         chan = client.get_channel(CONTROL_ID)
@@ -183,7 +183,7 @@ async def on_message(message):
           await m.delete()
         await message.channel.send(content=f'Cleared {len(his)} messges.')
       return
-    hass.log(f'Direct Mesasge from {message.author.display_name}: {message.content}')
+    print(f'Direct Mesasge from {message.author.display_name}: {message.content}')
 
 @slash.slash(
   name="start",
@@ -244,7 +244,7 @@ async def _parse(ctx:SlashContext, url:str=''):
       msg = await ctx.send(f'🧐 Parsing {url} (takes ~30 seconds)')
 
     bulletin = parse_pdf(url)
-    hass.log(bulletin)
+    print(bulletin)
 
     list_msg = format_bulletin(bulletin)
 
@@ -306,19 +306,19 @@ async def _cam(ctx:SlashContext, position):
   guild_ids=[GUILD_ID]
 )
 async def _voice(ctx:SlashContext):
-  hass.log('Test Voice')
+  print('Test Voice')
   user=ctx.author
   voice_channel=ctx.guild.get_channel(947230453742600227)
   if voice_channel!= None:
-    hass.log(f'{user.name} is in channel: {voice_channel.name}')
+    print(f'{user.name} is in channel: {voice_channel.name}')
     # create StreamPlayer
     vc= await voice_channel.connect()
-    hass.log('connected')
+    print('connected')
     await asyncio.sleep(1)
     try:
-      hass.log('playing')
+      print('playing')
       # Lets play that mp3 file in the voice channel
-      vc.play(discord.FFmpegPCMAudio('Course laid in.mp3', executable='C:/src/ffmpeg/bin/ffmpeg.exe'), after=lambda e: hass.log(f"Finished playing: {e}"))
+      vc.play(discord.FFmpegPCMAudio('Course laid in.mp3', executable='C:/src/ffmpeg/bin/ffmpeg.exe'), after=lambda e: print(f"Finished playing: {e}"))
 
       # Lets set the volume to 100%
       vc.source = discord.PCMVolumeTransformer(vc.source)
@@ -326,7 +326,7 @@ async def _voice(ctx:SlashContext):
 
     # Handle the exceptions that can occur
     except e:
-      hass.log(e)
+      print(e)
     # except ClientException as e:
     #     await ctx.send(f"A client exception occured:\n`{e}`")
     except TypeError as e:
@@ -336,11 +336,11 @@ async def _voice(ctx:SlashContext):
 
     while vc.is_playing():
       await asyncio.sleep(1)
-    hass.log('done')
+    print('done')
 
     await ctx.send('done')
     # await vc.disconnect()
-    # hass.log('disconnected')
+    # print('disconnected')
   else:
     await client.say('User is not in a channel.')
 
@@ -352,7 +352,7 @@ def get_url():
     href = page.xpath('//*[@id="document_group"]/div/table//td//a')[0].attrib['href']
     href = f'https://sgsda.org{href}'
   except:
-    hass.log('Failed to get URL')
+    print('Failed to get URL')
     href = None
   return href
 
@@ -369,7 +369,7 @@ def parse_pdf(file):
       del_file = False
   else:
     file = file.name
-  hass.log(f'Parse PDF {file}')
+  print(f'Parse PDF {file}')
   raw = parser.from_file(file)
   if del_file:
     os.unlink(file)
@@ -379,7 +379,7 @@ def parse_pdf(file):
   iso_date = None
   i = 0
   for line in txt.split('\n'):
-    # hass.log(f'i: {i}, len: {len(chapters)}, line: "{line.strip()}"')
+    # print(f'i: {i}, len: {len(chapters)}, line: "{line.strip()}"')
     m = re.search(r'^(.+?)(?:\.|…|\s){5,}(.+$)', line.strip())
     date_re = re.search(r'^[a-zA-Z]+? [0-9]+, [0-9]{4} [0-9]+:[0-9]+ ', line.strip())
     stripped_line = re.sub(r'[\u2018\u2019]', "'", re.sub(r'[\u201C\u201D]', '"', line)).strip()
@@ -392,7 +392,7 @@ def parse_pdf(file):
           'info': '',
           'start': '10:00'
         })
-        # hass.log(chapters[-1])
+        # print(chapters[-1])
     elif date_re != None:
       parse_date = datetime.strptime(date_re.group(0).strip(), r'%B %d, %Y %H:%M')
       iso_date = datetime.strftime(parse_date, r'%Y-%m-%d')
@@ -405,7 +405,7 @@ def parse_pdf(file):
       elif i < 4 and not stripped_line.startswith("Welcome! We're so glad you're here.") and not stripped_line.startswith('Piano: ') and not stripped_line.startswith('Organ: '):
         e = e | {'info': stripped_line}
         chapters.append(e)
-        # hass.log(f'info: "' + chapters[-1]['info'] + '"')
+        # print(f'info: "' + chapters[-1]['info'] + '"')
     i += 1
   if parse_date == None or iso_date == None:
     iso_date = os.path.basename(file).replace('.pdf', '')
@@ -459,37 +459,37 @@ async def parse_schedule(force=False):
     nowstr = datetime.now().strftime('%A %H %M')
     if nowstr == 'Friday 15 00' or force:
       techs = []
-      for tech in run_cal(hass):
+      for tech in run_cal():
         try:
           techs.append({'name': tech, 'id': People[tech].value})
         except:
-          hass.log(f'Skipping unknown tech"{tech}"')
+          print(f'Skipping unknown tech"{tech}"')
       techs = list({v['id']:v for v in techs}.values())
 
       role = get(GUILD.roles, name='Current')
       for member in role.members:
         if member.id not in list(map(lambda x: x['id'], techs)):
-          hass.log(f'Remove {member.display_name} from current')
+          print(f'Remove {member.display_name} from current')
           await member.remove_roles(role)
       for tech in techs:
         if tech['id'] not in list(map(lambda x: x.id, role.members)):
-          hass.log(f"Add {tech['name']} ({tech['id']}) to current")
+          print(f"Add {tech['name']} ({tech['id']}) to current")
           member = GUILD.get_member(tech['id'])
           if member == None:
-            hass.log(f"Member {tech['name']} ({tech['id']}) not found in {GUILD.name} ({GUILD.id}).")
+            print(f"Member {tech['name']} ({tech['id']}) not found in {GUILD.name} ({GUILD.id}).")
           else:
             await member.add_roles(role)
         else:
-          hass.log(f"{tech['name']} ({tech['id']}) already in current.")
+          print(f"{tech['name']} ({tech['id']}) already in current.")
 
-      hass.log('Parsing bulletin per schedule')
+      print('Parsing bulletin per schedule')
       bulletin = parse_pdf(get_url())
       await mqtt_bulletin(bulletin)
       msg = await client.get_channel(CURRENT_ID).send(content=format_bulletin(bulletin))
-      hass.log(bulletin)
+      print(bulletin)
 
       if force:
-        hass.log(f'Parse forced, exiting loop')
+        print(f'Parse forced, exiting loop')
         return msg
       await asyncio.sleep(500)
     else:
@@ -504,35 +504,35 @@ async def mqtt_bulletin(bulletin):
     await mqtt_client.publish( 'bulletin_json', payload=json.dumps(bulletin))
 
 
+async def initTika():
+  fdst = NamedTemporaryFile(delete=False)
+  fdst.close()
+  parser.from_file(fdst.name)
+  os.unlink(fdst.name)
+
+
 async def testfunc():
-  hass.log('Starting testfunc')
   await asyncio.sleep(5)
   # for fn in sorted(os.listdir(os.path.join('z:',os.sep,'projects','church','toArchive','pdf'))):
   #   if datetime.strptime(fn.replace('.pdf', ''), r'%Y-%m-%d') < datetime.strptime('2018-09-15', r'%Y-%m-%d'):
   #     continue
   #   bulletin = parse_pdf(os.path.join('z:',os.sep,'projects','church','toArchive','pdf',fn))
-  #   hass.log(bulletin)
+  #   print(bulletin)
   #   await mqtt_bulletin(bulletin)
   #   await asyncio.sleep(0.1)
 
 
-def startup(ha):
-  global hass
-  hass = ha
+def startup():
   loop.create_task(setup_mqtt())
   loop.create_task(parse_schedule())
-  # loop.create_task(testfunc())
+  loop.create_task(initTika())
   try:
     loop.run_until_complete(client.start(TOKEN))
   except KeyboardInterrupt:
-    hass.log('Quitting')
+    print('Quitting')
     # for guild in client.guilds:
     #   guild.get_channel(947230453742600227).disconnect()
     quit()
 
-class Logger():
-  def log(self, l):
-    print(l)
-
 if __name__ == '__main__':
-  startup(Logger)
+  startup()

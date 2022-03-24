@@ -1,0 +1,18 @@
+FROM python:alpine
+WORKDIR /src
+ENV TIKA_SERVER_JAR="file:///src/tika-server-1.24.jar"
+CMD ["python", "main.py"]
+
+RUN apk add \
+    gcc \
+    libxml2 \
+    libxml2-dev \
+    musl-dev \
+    libxslt \
+    libxslt-dev \
+    openjdk8-jre
+
+ADD requirements.txt /src
+RUN pip install -r requirements.txt
+
+ADD . /src
