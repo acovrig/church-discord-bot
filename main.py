@@ -300,51 +300,6 @@ async def _cam(ctx:SlashContext, position):
     await ctx.send('You must be in the `control` channel to use this.', delete_after=30)
 
 
-@slash.slash(
-  name="voice",
-  description="Test voice integration",
-  guild_ids=[GUILD_ID]
-)
-async def _voice(ctx:SlashContext):
-  print('Test Voice')
-  user=ctx.author
-  voice_channel=ctx.guild.get_channel(947230453742600227)
-  if voice_channel!= None:
-    print(f'{user.name} is in channel: {voice_channel.name}')
-    # create StreamPlayer
-    vc= await voice_channel.connect()
-    print('connected')
-    await asyncio.sleep(1)
-    try:
-      print('playing')
-      # Lets play that mp3 file in the voice channel
-      vc.play(discord.FFmpegPCMAudio('Course laid in.mp3', executable='C:/src/ffmpeg/bin/ffmpeg.exe'), after=lambda e: print(f"Finished playing: {e}"))
-
-      # Lets set the volume to 100%
-      vc.source = discord.PCMVolumeTransformer(vc.source)
-      vc.source.volume = 1.0
-
-    # Handle the exceptions that can occur
-    except e:
-      print(e)
-    # except ClientException as e:
-    #     await ctx.send(f"A client exception occured:\n`{e}`")
-    except TypeError as e:
-        await ctx.send(f"TypeError exception:\n`{e}`")
-    # except OpusNotLoaded as e:
-    #     await ctx.send(f"OpusNotLoaded exception: \n`{e}`")
-
-    while vc.is_playing():
-      await asyncio.sleep(1)
-    print('done')
-
-    await ctx.send('done')
-    # await vc.disconnect()
-    # print('disconnected')
-  else:
-    await client.say('User is not in a channel.')
-
-
 def get_url():
   try:
     html = requests.get('https://sgsda.org/document_groups/2346').text
