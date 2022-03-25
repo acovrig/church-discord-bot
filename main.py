@@ -412,7 +412,7 @@ async def parse_schedule(force=False):
     await asyncio.sleep(10)
   while True:
     nowstr = datetime.now().strftime('%A %H %M')
-    if nowstr == 'Friday 15 00' or force:
+    if nowstr == 'Friday 19 00' or force:
       techs = []
       for tech in run_cal():
         try:
