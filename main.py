@@ -79,6 +79,15 @@ async def setup_mqtt():
             print('Updating YouTube')
             msg = await GUILD.get_channel(CURRENT_ID).send(content=f'Updating YouTube Description')
             await run_yt(msg)
+          elif txt == 'parse':
+            url = get_url()
+            print(f'Parsing {url}')
+            if url != None:
+              bulletin = parse_pdf(url)
+              print(bulletin)
+              await mqtt_bulletin(bulletin)
+          elif txt == 'schedule':
+            await parse_schedule(True)
         if channel != None:
           await channel.send(content=f'MQTT: {txt}', delete_after=10)
 
