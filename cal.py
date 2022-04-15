@@ -13,11 +13,7 @@ from googleapiclient.errors import HttpError
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
 
-
-def run_cal():
-  """Shows basic usage of the Google Calendar API.
-  prints the start and name of the next 10 events on the user's calendar.
-  """
+def get_creds(auto = False):
   creds = None
   # The file token.json stores the user's access and refresh tokens, and is
   # created automatically when the authorization flow completes for the first
@@ -32,8 +28,9 @@ def run_cal():
   # If there are no (valid) credentials available, let the user log in.
   if not creds or not creds.valid:
     if creds and creds.expired and creds.refresh_token:
+      print('Refreshing token')
       creds.refresh(Request())
-    else:
+    elif not auto:
       creds_file = 'credentials.json'
       if os.path.exists(os.path.join(os.path.sep, 'creds', 'credentials.json')):
         creds_file = os.path.join(os.path.sep, 'creds', 'credentials.json')
@@ -41,9 +38,20 @@ def run_cal():
         creds_file = os.path.join('creds', 'credentials.json')
       flow = InstalledAppFlow.from_client_secrets_file(creds_file, SCOPES)
       creds = flow.run_local_server(port=0)
+    else:
+      print('Unable to refresh token (auto)')
+      
     # Save the credentials for the next run
     with open(token_file, 'w') as token:
       token.write(creds.to_json())
+  return creds
+
+def run_cal():
+  """Shows basic usage of the Google Calendar API.
+  prints the start and name of the next 10 events on the user's calendar.
+  """
+
+  creds = get_creds()
 
   try:
     service = build('calendar', 'v3', credentials=creds)

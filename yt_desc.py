@@ -18,11 +18,7 @@ from discord import Embed
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
 
-
-async def run_yt(msg=None):
-  """Shows basic usage of the Google Calendar API.
-  prints the start and name of the next 10 events on the user's calendar.
-  """
+def get_creds(auto = False):
   creds = None
   # The file token.json stores the user's access and refresh tokens, and is
   # created automatically when the authorization flow completes for the first
@@ -31,14 +27,14 @@ async def run_yt(msg=None):
   if os.path.exists(os.path.join(os.path.sep, 'creds', 'token-yt.json')):
     token_file = os.path.join(os.path.sep, 'creds', 'token-yt.json')
   elif os.path.exists(os.path.join('creds', 'token-yt.json')):
-    token_file = os.path.join(os.path.sep, 'creds', 'token-yt.json')
+    token_file = os.path.join('creds', 'token-yt.json')
   if os.path.exists(token_file):
     creds = Credentials.from_authorized_user_file(token_file, SCOPES)
   # If there are no (valid) credentials available, let the user log in.
   if not creds or not creds.valid:
     if creds and creds.expired and creds.refresh_token:
       creds.refresh(Request())
-    else:
+    elif not auto:
       creds_file = 'credentials.json'
       if os.path.exists(os.path.join(os.path.sep, 'creds', 'credentials.json')):
         creds_file = os.path.join(os.path.sep, 'creds', 'credentials.json')
@@ -46,9 +42,20 @@ async def run_yt(msg=None):
         creds_file = os.path.join('creds', 'credentials.json')
       flow = InstalledAppFlow.from_client_secrets_file(creds_file, SCOPES)
       creds = flow.run_local_server(port=0)
+    else:
+      print('Unable to refresh token (auto)')
+
     # Save the credentials for the next run
     with open(token_file, 'w') as token:
       token.write(creds.to_json())
+  return creds
+
+async def run_yt(msg=None):
+  """Shows basic usage of the Google Calendar API.
+  prints the start and name of the next 10 events on the user's calendar.
+  """
+
+  creds = get_creds()
 
   try:
     service = build('youtube', 'v3', credentials=creds)
@@ -137,4 +144,5 @@ async def run_yt(msg=None):
       await msg.edit(content=f"🛑 Something went wrong with the YT API: {error}")
 
 if __name__ == '__main__':
-  run_yt()
+  import asyncio
+  asyncio.run(run_yt())

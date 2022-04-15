@@ -15,8 +15,8 @@ import PyPDF2
 from tika import parser
 from datetime import datetime
 
-from cal import run_cal
-from yt_desc import run_yt
+from cal import run_cal, get_creds as refresh_cal
+from yt_desc import run_yt, get_creds as refresh_yt
 from people import People
 
 from time import sleep
@@ -458,6 +458,11 @@ async def mqtt_bulletin(bulletin):
     password=MQTT_PASS) as mqtt_client:
     await mqtt_client.publish( 'bulletin_json', payload=json.dumps(bulletin))
 
+async def refresh_tokens():
+  while True:
+    refresh_cal(True)
+    refresh_yt(True)
+    await asyncio.sleep(60*30) # run every 30min
 
 async def initTika():
   fdst = NamedTemporaryFile(delete=False)
@@ -480,6 +485,7 @@ async def testfunc():
 def startup():
   loop.create_task(setup_mqtt())
   loop.create_task(parse_schedule())
+  loop.create_task(refresh_tokens())
   loop.create_task(initTika())
   try:
     loop.run_until_complete(client.start(TOKEN))
