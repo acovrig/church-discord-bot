@@ -44,6 +44,8 @@ def get_creds(auto = False):
       creds = flow.run_local_server(port=0)
     else:
       print('Unable to refresh token (auto)')
+  else:
+    print('YT Token Valid')
 
     # Save the credentials for the next run
     with open(token_file, 'w') as token:
