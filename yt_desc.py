@@ -121,8 +121,8 @@ async def run_yt(msg=None):
       bulletin = BulletinDB()
       bulletin = bulletin.get_date(sab)
       for e in bulletin:
-        who = e['who']
-        info = e['info']
+        who = e['who'] or ''
+        info = e['info'] or ''
         if who != '':
           who=f' - {who}'
         if info != '':
