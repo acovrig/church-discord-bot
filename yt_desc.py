@@ -1,8 +1,7 @@
 from __future__ import print_function
 
 import datetime
-import os.path
-from re import sub
+import os
 
 from bulletin_db import BulletinDB
 from datetime import datetime, timedelta
@@ -12,6 +11,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from google.auth.exceptions import RefreshError
 
 from discord import Embed
 
@@ -23,17 +23,23 @@ def get_creds(auto = False):
   # The file token.json stores the user's access and refresh tokens, and is
   # created automatically when the authorization flow completes for the first
   # time.
-  token_file = 'token-yt.json'
+  token_file = os.path.join('creds', 'token-yt.json')
   if os.path.exists(os.path.join(os.path.sep, 'creds', 'token-yt.json')):
     token_file = os.path.join(os.path.sep, 'creds', 'token-yt.json')
-  elif os.path.exists(os.path.join('creds', 'token-yt.json')):
-    token_file = os.path.join('creds', 'token-yt.json')
+  elif os.path.exists('token-yt.json'):
+    token_file = 'token-yt.json'
   if os.path.exists(token_file):
     creds = Credentials.from_authorized_user_file(token_file, SCOPES)
   # If there are no (valid) credentials available, let the user log in.
   if not creds or not creds.valid:
     if creds and creds.expired and creds.refresh_token:
-      creds.refresh(Request())
+      try:
+        print('Refreshing yt token')
+        creds.refresh(Request())
+      except RefreshError:
+        os.remove(token_file)
+        if not auto:
+          creds = get_creds()
     elif not auto:
       creds_file = 'credentials.json'
       if os.path.exists(os.path.join(os.path.sep, 'creds', 'credentials.json')):
@@ -44,12 +50,14 @@ def get_creds(auto = False):
       creds = flow.run_local_server(port=0)
     else:
       print('Unable to refresh token (auto)')
+      return None
   else:
     print('YT Token Valid')
 
-    # Save the credentials for the next run
-    with open(token_file, 'w') as token:
-      token.write(creds.to_json())
+  # Save the credentials for the next run
+  # print(f'Saving creds to {token_file}')
+  with open(token_file, 'w') as token:
+    token.write(creds.to_json())
   return creds
 
 async def run_yt(msg=None):
