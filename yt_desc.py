@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import datetime
 import os
 
 from bulletin_db import BulletinDB
@@ -12,8 +11,6 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.auth.exceptions import RefreshError
-
-from discord import Embed
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl']
@@ -114,6 +111,7 @@ async def run_yt(msg=None):
     desc = video.get('snippet', {}).get('description', 'Standifer Gap SDA Church')
     
     sab = 7 - (5 - datetime.now().weekday()) # TODO: test this, it feels wrong
+    sab = 0 if sab == 7 else sab
     sab = (datetime.now() - timedelta(sab)).date()
 
     times = '0:00:00 Happy Sabbath'
@@ -130,7 +128,7 @@ async def run_yt(msg=None):
         times = f"{times}\n{e['ss']} - {e['name']}{who}{info}"
       desc = f'{desc}\n\nChapters:\n{times}'
 
-      updated_video = service.videos().update(
+      service.videos().update(
         part='snippet',
         body={
           'id': vid,
@@ -142,9 +140,11 @@ async def run_yt(msg=None):
         }
       ).execute()
 
+      print(f'Updated https://youtu.be/{vid}:\n\n{times}')
       if msg != None:
         await msg.edit(content=f"✅ Updated the description of https://youtu.be/{vid}:\n\n{times}")
     else:
+      print(f'Video already has times: https://youtu.be/{vid}')
       if msg != None:
         await msg.edit(content=f"✅ Video already has times: https://youtu.be/{vid}:\n\n{desc}")
 

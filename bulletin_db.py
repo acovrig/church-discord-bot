@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from datetime import timedelta
+from datetime import timedelta, datetime
 import mysql.connector
 
 class BulletinDB:
@@ -15,8 +15,13 @@ class BulletinDB:
     )
     self.cursor = self.db.cursor(dictionary=True)
   
-  def get_date(self, date):
-    self.cursor.execute('SELECT name,who,info,start FROM bulletin WHERE date=%s AND name != %s;', (date,'end'))
+  def get_date(self, date=None):
+    if date is None:
+      date = 7 - (5 - datetime.now().weekday()) # TODO: test this, it feels wrong
+      date = 0 if date == 7 else date
+      date = (datetime.now() - timedelta(date)).date()
+    print('SELECT name,who,info,start FROM bulletin WHERE date=%s AND name != %s ORDER BY start;'.format(date,'end'))
+    self.cursor.execute('SELECT name,who,info,start FROM bulletin WHERE date=%s AND name != %s ORDER BY start;', (date,'end'))
     res = self.cursor.fetchall()
     ss = res[0]['start']
     del res[0]
@@ -25,3 +30,12 @@ class BulletinDB:
       x['ss'] = d
     
     return res
+
+if __name__ == '__main__':
+  from dotenv import load_dotenv
+  load_dotenv()
+
+  bulletin = BulletinDB()
+  bulletin = bulletin.get_date()
+  for e in bulletin:
+    print(f"{e['ss']} - {e['name']} - {e['who']} ({e['info']})")
