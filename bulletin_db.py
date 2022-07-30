@@ -6,7 +6,8 @@ import mysql.connector
 class BulletinDB:
   def __init__(self):
     print('Init DB')
-    load_dotenv()
+    if os.path.exists('.env'):
+      load_dotenv()
     self.db = mysql.connector.connect(
       host=os.getenv('MYSQL_HOST'),
       user=os.getenv('MYSQL_USER'),
@@ -33,7 +34,8 @@ class BulletinDB:
 
 if __name__ == '__main__':
   from dotenv import load_dotenv
-  load_dotenv()
+  if os.path.exists('.env'):
+    load_dotenv()
 
   bulletin = BulletinDB()
   bulletin = bulletin.get_date()

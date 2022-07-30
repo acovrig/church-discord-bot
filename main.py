@@ -22,7 +22,11 @@ from people import People
 from time import sleep
 import pdb
 
+if os.path.exists('.env'):
 load_dotenv()
+else:
+  print('ENV file missing, assuming env vars passed in.')
+
 TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD_ID = int(os.getenv('DISCORD_GUILD_ID'))
 CURRENT_ID = int(os.getenv('CURRENT_ID'))
