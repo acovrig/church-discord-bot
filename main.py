@@ -23,7 +23,7 @@ from time import sleep
 import pdb
 
 if os.path.exists('.env'):
-load_dotenv()
+  load_dotenv()
 else:
   print('ENV file missing, assuming env vars passed in.')
 
@@ -45,7 +45,6 @@ if os.name == 'nt':
 
 intents = discord.Intents.default()
 intents.members = True
-# loop = asyncio.get_event_loop()
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 client = discord.Client(loop=loop, intents=intents)
@@ -92,6 +91,11 @@ async def setup_mqtt():
               await mqtt_bulletin(bulletin)
           elif txt == 'schedule':
             await parse_schedule(True)
+          elif txt == 'refresh_tokens':
+            print('Refreshing tokens (mqtt):')
+            refresh_cal(True)
+            refresh_yt(True)
+            print('Refreshed tokens (mqtt)')
         if channel != None:
           await channel.send(content=f'MQTT: {txt}', delete_after=10)
 
@@ -498,7 +502,7 @@ async def testfunc():
 def startup():
   loop.create_task(setup_mqtt())
   loop.create_task(parse_schedule())
-  loop.create_task(refresh_tokens())
+  # loop.create_task(refresh_tokens())
   loop.create_task(initTika())
   try:
     loop.run_until_complete(client.start(TOKEN))
