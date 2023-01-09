@@ -21,11 +21,11 @@ build:
     - name: docker:dind
       command: ["--experimental"]
   before_script:
-    # - apk add curl
-    # - mkdir -vp ~/.docker/cli-plugins/
-    # - curl --silent -L "https://github.com/docker/buildx/releases/download/v0.8.1/buildx-v0.8.1.linux-amd64" > ~/.docker/cli-plugins/docker-buildx
-    # - chmod a+x ~/.docker/cli-plugins/docker-buildx
-    # - docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+    - apk add curl
+    - mkdir -vp ~/.docker/cli-plugins/
+    - curl --silent -L "https://github.com/docker/buildx/releases/download/v0.8.1/buildx-v0.8.1.linux-amd64" > ~/.docker/cli-plugins/docker-buildx
+    - chmod a+x ~/.docker/cli-plugins/docker-buildx
+    - docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
   # Default branch leaves tag empty (= latest tag)
   # All other branches are tagged with the escaped branch name (commit ref slug)
@@ -38,11 +38,11 @@ build:
         tag=":$CI_COMMIT_REF_SLUG"
         echo "Running on branch '$CI_COMMIT_BRANCH': tag = $tag"
       fi
-    # - docker buildx create --use
-    # - docker buildx inspect --bootstrap
-    - docker build -t "$CI_REGISTRY_IMAGE${tag}" -f Dockerfile-alpine .
-    # - docker buildx build --platform linux/arm64,linux/amd64 --push -t "$CI_REGISTRY_IMAGE${tag}" -f Dockerfile-alpine .
-    # - docker manifest inspect "$CI_REGISTRY_IMAGE${tag}"
+    - docker buildx create --use
+    - docker buildx inspect --bootstrap
+    # - docker build -t "$CI_REGISTRY_IMAGE${tag}" -f Dockerfile-alpine .
+    - docker buildx build --platform linux/arm64,linux/amd64 --push -t "$CI_REGISTRY_IMAGE${tag}" -f Dockerfile-alpine .
+    - docker manifest inspect "$CI_REGISTRY_IMAGE${tag}"
   # Run this job in a branch where a Dockerfile exists
   rules:
     - if: $CI_COMMIT_BRANCH
