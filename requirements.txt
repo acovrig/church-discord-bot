@@ -1,6 +1,6 @@
 asyncio_mqtt==0.12.1
 discord.py==1.7.3
-lxml==4.8.0
+lxml==4.9.1
 PyPDF2==1.26.0
 python-dotenv==0.19.2
 requests==2.27.1

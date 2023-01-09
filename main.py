@@ -5,22 +5,16 @@ import json
 import discord
 from discord.utils import get
 from discord_slash import SlashCommand, SlashContext
-from discord_slash.utils.manage_commands import create_choice, create_option
+from discord_slash.utils.manage_commands import create_option
 from dotenv import load_dotenv
 from asyncio_mqtt import Client, Will
 import asyncio
 import lxml.html
 import requests
-import PyPDF2
 from tika import parser
 from datetime import datetime
 
-from cal import run_cal, get_creds as refresh_cal
-from yt_desc import run_yt, get_creds as refresh_yt
 from people import People
-
-from time import sleep
-import pdb
 
 if os.path.exists('.env'):
   load_dotenv()
@@ -78,11 +72,7 @@ async def setup_mqtt():
         elif message.topic == 'discord/test':
           channel = GUILD.get_channel(TEST_ID)
         elif message.topic == 'discord/command':
-          if txt == 'update_youtube':
-            print('Updating YouTube')
-            msg = await GUILD.get_channel(CURRENT_ID).send(content=f'Updating YouTube Description')
-            await run_yt(msg)
-          elif txt == 'parse':
+          if txt == 'parse':
             url = get_url()
             print(f'Parsing {url}')
             if url != None:
@@ -91,11 +81,6 @@ async def setup_mqtt():
               await mqtt_bulletin(bulletin)
           elif txt == 'schedule':
             await parse_schedule(True)
-          elif txt == 'refresh_tokens':
-            print('Refreshing tokens (mqtt):')
-            refresh_cal(True)
-            refresh_yt(True)
-            print('Refreshed tokens (mqtt)')
         if channel != None:
           await channel.send(content=f'MQTT: {txt}', delete_after=10)
 
@@ -430,30 +415,6 @@ async def parse_schedule(force=False):
   while True:
     nowstr = datetime.now().strftime('%A %H %M')
     if nowstr == 'Friday 19 00' or force:
-      techs = []
-      for tech in run_cal():
-        try:
-          techs.append({'name': tech, 'id': People[tech].value})
-        except:
-          print(f'Skipping unknown tech"{tech}"')
-      techs = list({v['id']:v for v in techs}.values())
-
-      role = get(GUILD.roles, name='Current')
-      for member in role.members:
-        if member.id not in list(map(lambda x: x['id'], techs)):
-          print(f'Remove {member.display_name} from current')
-          await member.remove_roles(role)
-      for tech in techs:
-        if tech['id'] not in list(map(lambda x: x.id, role.members)):
-          print(f"Add {tech['name']} ({tech['id']}) to current")
-          member = GUILD.get_member(tech['id'])
-          if member == None:
-            print(f"Member {tech['name']} ({tech['id']}) not found in {GUILD.name} ({GUILD.id}).")
-          else:
-            await member.add_roles(role)
-        else:
-          print(f"{tech['name']} ({tech['id']}) already in current.")
-
       print('Parsing bulletin per schedule')
       bulletin = parse_pdf(get_url())
       await mqtt_bulletin(bulletin)
@@ -475,18 +436,11 @@ async def mqtt_bulletin(bulletin):
     password=MQTT_PASS) as mqtt_client:
     await mqtt_client.publish( 'bulletin_json', payload=json.dumps(bulletin))
 
-async def refresh_tokens():
-  while True:
-    refresh_cal(True)
-    refresh_yt(True)
-    await asyncio.sleep(60*30) # run every 30min
-
 async def initTika():
   fdst = NamedTemporaryFile(delete=False)
   fdst.close()
   parser.from_file(fdst.name)
   os.unlink(fdst.name)
-
 
 async def testfunc():
   await asyncio.sleep(5)
