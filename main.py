@@ -13,8 +13,8 @@ import lxml.html
 import requests
 from tika import parser
 from datetime import datetime
-
-from people import People
+from pdf2image import convert_from_path
+from PIL import Image, ImageChops
 
 if os.path.exists('.env'):
   load_dotenv()
@@ -253,6 +253,11 @@ async def _parse(ctx:SlashContext, url:str=''):
     await mqtt_bulletin(bulletin)
 
     await msg.edit(content=list_msg)
+    if os.path.exists('bulletin.jpg'):
+      with open('bulletin.jpg', 'rb') as f:
+        pic = discord.File(f)
+        await ctx.send(file=pic)
+        os.remove('bulletin.jpg')
   else:
     await ctx.send('😱 You must be in the `control` channel to use this.', delete_after=30)
 
@@ -327,6 +332,11 @@ def parse_pdf(file):
   else:
     file = file.name
   print(f'Parse PDF {file}')
+  try:
+    get_pdf_image(file)
+  except:
+    print('WARNING: Unable to get image from PDF')
+    pass
   raw = parser.from_file(file)
   if del_file:
     os.unlink(file)
@@ -418,7 +428,15 @@ async def parse_schedule(force=False):
       print('Parsing bulletin per schedule')
       bulletin = parse_pdf(get_url())
       await mqtt_bulletin(bulletin)
-      msg = await client.get_channel(CURRENT_ID).send(content=format_bulletin(bulletin))
+      channel = client.get_channel(CURRENT_ID)
+      msg = await channel.send(content=format_bulletin(bulletin))
+
+      if os.path.exists('bulletin.jpg'):
+        with open('bulletin.jpg', 'rb') as f:
+          pic = discord.file(f)
+          await channel.send(file=pic)
+          os.remove('bulletin.jpg')
+
       print(bulletin)
 
       if force:
@@ -442,15 +460,24 @@ async def initTika():
   parser.from_file(fdst.name)
   os.unlink(fdst.name)
 
-async def testfunc():
-  await asyncio.sleep(5)
-  # for fn in sorted(os.listdir(os.path.join('z:',os.sep,'projects','church','toArchive','pdf'))):
-  #   if datetime.strptime(fn.replace('.pdf', ''), r'%Y-%m-%d') < datetime.strptime('2018-09-15', r'%Y-%m-%d'):
-  #     continue
-  #   bulletin = parse_pdf(os.path.join('z:',os.sep,'projects','church','toArchive','pdf',fn))
-  #   print(bulletin)
-  #   await mqtt_bulletin(bulletin)
-  #   await asyncio.sleep(0.1)
+def get_pdf_image(file):
+  images = convert_from_path(file)
+  images[0].save('bulletin.jpg', 'JPEG')
+  im = Image.open('bulletin.jpg')
+  width, height = im.size
+  cropped_img = im.crop(((width / 3), 0, (width / 3) * 2, height))
+  bg = Image.new(cropped_img.mode, cropped_img.size, cropped_img.getpixel((0,0)))
+  diff = ImageChops.difference(cropped_img, bg)
+  diff = ImageChops.add(diff, diff, 2.0, -100)
+  bbox = diff.getbbox()
+  if bbox:
+    cropped_img = cropped_img.crop(bbox)
+  cropped_width, cropped_height = cropped_img.size
+  out_img = Image.new(cropped_img.mode, (cropped_width + 100, cropped_height + 100), (255, 255, 255))
+  out_img.paste(cropped_img, (50, 50))
+  out_img.save('bulletin_cropped.jpg')
+  im.close()
+  os.rename('bulletin_cropped.jpg', 'bulletin.jpg')
 
 
 def startup():

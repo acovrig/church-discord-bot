@@ -1,3 +1,4 @@
+.DS_Store
 .env
 __pycache__
 credentials.json
@@ -7,3 +8,4 @@ token-yt.json
 image.tar
 files.tar
 creds/
+bulletin.jpg
