@@ -7,7 +7,7 @@ from discord.utils import get
 from discord_slash import SlashCommand, SlashContext
 from discord_slash.utils.manage_commands import create_option
 from dotenv import load_dotenv
-from asyncio_mqtt import Client, Will
+from asyncio_mqtt import Client, Will, MqttError
 import asyncio
 import lxml.html
 import requests
@@ -45,44 +45,49 @@ client = discord.Client(loop=loop, intents=intents)
 slash = SlashCommand(client, sync_commands=True)
 
 async def setup_mqtt():
-  async with Client(
-    MQTT_HOST,
-    username=MQTT_USER,
-    password=MQTT_PASS,
-    will=Will('discord/status', 'off')
-  ) as mqtt_client:
-    async with mqtt_client.filtered_messages('discord/#') as messages:
-      await mqtt_client.subscribe("discord/av")
-      await mqtt_client.subscribe("discord/av-current")
-      await mqtt_client.subscribe("discord/command")
-      await mqtt_client.subscribe("discord/control")
-      await mqtt_client.subscribe("discord/test")
-      await mqtt_client.publish('discord/status', 'on')
-      print('MQTT ready')
-      async for message in messages:
-        channel = None
-        txt = message.payload.decode()
-        print(f'MQTT ({message.topic}): {txt}')
-        if message.topic == 'discord/av':
-          channel = GUILD.get_channel(ALL_ID)
-        elif message.topic == 'discord/av-current':
-          channel = GUILD.get_channel(CURRENT_ID)
-        elif message.topic == 'discord/control':
-          channel = GUILD.get_channel(CONTROL_ID)
-        elif message.topic == 'discord/test':
-          channel = GUILD.get_channel(TEST_ID)
-        elif message.topic == 'discord/command':
-          if txt == 'parse':
-            url = get_url()
-            print(f'Parsing {url}')
-            if url != None:
-              bulletin = parse_pdf(url)
-              print(bulletin)
-              await mqtt_bulletin(bulletin)
-          elif txt == 'schedule':
-            await parse_schedule(True)
-        if channel != None:
-          await channel.send(content=f'MQTT: {txt}', delete_after=10)
+  while True:
+    try:
+      async with Client(
+        MQTT_HOST,
+        username=MQTT_USER,
+        password=MQTT_PASS,
+        will=Will('discord/status', 'off')
+      ) as mqtt_client:
+        async with mqtt_client.filtered_messages('discord/#') as messages:
+          await mqtt_client.subscribe("discord/av")
+          await mqtt_client.subscribe("discord/av-current")
+          await mqtt_client.subscribe("discord/command")
+          await mqtt_client.subscribe("discord/control")
+          await mqtt_client.subscribe("discord/test")
+          await mqtt_client.publish('discord/status', 'on')
+          print('MQTT ready')
+          async for message in messages:
+            channel = None
+            txt = message.payload.decode()
+            print(f'MQTT ({message.topic}): {txt}')
+            if message.topic == 'discord/av':
+              channel = GUILD.get_channel(ALL_ID)
+            elif message.topic == 'discord/av-current':
+              channel = GUILD.get_channel(CURRENT_ID)
+            elif message.topic == 'discord/control':
+              channel = GUILD.get_channel(CONTROL_ID)
+            elif message.topic == 'discord/test':
+              channel = GUILD.get_channel(TEST_ID)
+            elif message.topic == 'discord/command':
+              if txt == 'parse':
+                url = get_url()
+                print(f'Parsing {url}')
+                if url != None:
+                  bulletin = parse_pdf(url)
+                  print(bulletin)
+                  await mqtt_bulletin(bulletin)
+              elif txt == 'schedule':
+                await parse_schedule(True)
+            if channel != None:
+              await channel.send(content=f'MQTT: {txt}', delete_after=10)
+    except MqttError as error:
+      print(f'MQTT Error "{error}", reconnecting in 5s.')
+      await asyncio.sleep(5)
 
 
 @client.event
@@ -334,8 +339,9 @@ def parse_pdf(file):
   print(f'Parse PDF {file}')
   try:
     get_pdf_image(file)
-  except:
-    print('WARNING: Unable to get image from PDF')
+  except Exception as e:
+    print('WARNING: Unable to get image from PDF:')
+    print(e)
     pass
   raw = parser.from_file(file)
   if del_file:
@@ -461,6 +467,7 @@ async def initTika():
   os.unlink(fdst.name)
 
 def get_pdf_image(file):
+  print(f'Getting image from pdf {file}')
   images = convert_from_path(file)
   images[0].save('bulletin.jpg', 'JPEG')
   im = Image.open('bulletin.jpg')
@@ -483,7 +490,6 @@ def get_pdf_image(file):
 def startup():
   loop.create_task(setup_mqtt())
   loop.create_task(parse_schedule())
-  # loop.create_task(refresh_tokens())
   loop.create_task(initTika())
   try:
     loop.run_until_complete(client.start(TOKEN))
