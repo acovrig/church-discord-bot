@@ -3,6 +3,10 @@ WORKDIR /src
 ENV TIKA_SERVER_JAR="file:///src/tika-server-1.24.jar"
 CMD ["python", "main.py"]
 
+# Add jar separately since it's unlikely to change
+# and it's rather large
+ADD tika-server-1.24.jar /src
+
 RUN apk add \
     gcc \
     libxml2 \
@@ -10,7 +14,8 @@ RUN apk add \
     musl-dev \
     libxslt \
     libxslt-dev \
-    openjdk8-jre
+    openjdk8-jre \
+    poppler-utils
 
 ADD requirements.txt /src
 RUN pip install -r requirements.txt
